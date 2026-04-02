@@ -25,7 +25,7 @@ Additional config considerations:
 
 For projects that have a `CMakeLists.txt` in the root directory, CTest will be used, and g++/gcc otherwise. The idea is that either way, the output will be nicely formatted.
 
-CMake support will be prioritized.
+CMake support will be prioritized. Also, g++ support will be secondary; clang++ diagnostics will provide a heightened user experience.
 
 ## Commands
 - :SanBuild <address, thread, leak, undefined, memory>
