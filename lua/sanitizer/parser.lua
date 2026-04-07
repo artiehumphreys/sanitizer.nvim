@@ -48,10 +48,25 @@ M.extract_stack_frame = function(line, result)
 	local before, binary = line:match(PATTERNS.frame)
 	if before ~= nil then
 		local func, file, line_num = before:match(PATTERNS.file_line)
-		-- TODO: build frame table and insert into result.frames
+		if func then
+			table.insert(result.frames, { func = func, file = file, line = tonumber(line_num), binary = binary })
+		else
+			-- when file is <null>
+			-- TODO: should I keep them?
+			table.insert(result.frames, { func = before, file = nil, line = nil, binary = binary })
+		end
 	end
 end
 
-M.filter_user_frames = function(frames, project_root) end
+---@param frames SanitizerFrame[]
+---@param project_root string
+M.filter_user_frames = function(frames, project_root)
+	local user_frames = {}
+	for _, frame in ipairs(frames) do
+		if frame.file and frame.file:match(project_root) then
+			table.insert(user_frames, frame)
+		end
+	end
+end
 
 return M
