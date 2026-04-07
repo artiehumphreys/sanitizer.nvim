@@ -1,7 +1,7 @@
 local M = {}
 
 ---@param project_root string
----@return string[]
+---@return table<string, string>
 M.get_project_files = function(project_root)
 	local res = {}
 	local pattern = "**/*.{c,cpp,h,hpp,cc,hh}"

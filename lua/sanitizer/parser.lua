@@ -62,9 +62,12 @@ end
 ---@param project_root string
 M.filter_user_frames = function(frames, project_root)
 	local user_frames = {}
+	local project = require("sanitizer.project")
+	local files = project.get_project_files(project_root)
+
 	for _, frame in ipairs(frames) do
-		if frame.file and frame.file:match(project_root) then
-			table.insert(user_frames, frame)
+		if frame.file and files[frame.file] then
+			table.insert(user_frames, files[frame.file])
 		end
 	end
 end
