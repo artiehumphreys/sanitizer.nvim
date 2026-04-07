@@ -60,6 +60,7 @@ end
 
 ---@param frames SanitizerFrame[]
 ---@param project_root string
+---@return string[]
 M.filter_user_frames = function(frames, project_root)
 	local user_frames = {}
 	local project = require("sanitizer.project")
@@ -70,6 +71,8 @@ M.filter_user_frames = function(frames, project_root)
 			table.insert(user_frames, files[frame.file])
 		end
 	end
+
+	return user_frames
 end
 
 return M

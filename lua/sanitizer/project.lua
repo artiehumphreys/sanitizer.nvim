@@ -8,8 +8,10 @@ M.get_project_files = function(project_root)
 	local files = vim.fn.globpath(project_root, pattern, false, true)
 
 	for _, file in ipairs(files) do
-		local filename = vim.fn.fnamemodify(file, ":t")
-		res[filename] = vim.fn.fnamemodify(file, ":p")
+		if not file:find("build/") and not file:find("node_modules/") then
+			local filename = vim.fn.fnamemodify(file, ":t")
+			res[filename] = vim.fn.fnamemodify(file, ":p")
+		end
 	end
 
 	return res
