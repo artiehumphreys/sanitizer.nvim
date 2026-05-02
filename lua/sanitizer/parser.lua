@@ -17,10 +17,10 @@ local PATTERNS = {
 	frame = "^%s+#%d+%s+(.+)%s+%((.-)%)$",
 	file_line = "(.+)%s+(.+):(%d+)$",
 	summary = "^SUMMARY:%s+(.+)$",
-	error_info = "ERROR:%s+(%w+):%s+(.+)%s+on",
+	error_info = "^%w+:%s+(%w+):%s+(.+)$",
 	is_frame = "^%s+#%d+",
 	is_summary = "^SUMMARY:",
-	is_error = "ERROR:%s+%w+:",
+	is_error = "^%w+:%s+%w+Sanitizer:",
 }
 
 ---@param output string
@@ -40,6 +40,20 @@ M.parse = function(output)
 	end
 
 	return result
+end
+
+---@param line string
+---@param result SanitizerResult
+M.extract_summary = function(line, result)
+	result.summary = line:match(PATTERNS.summary)
+end
+
+---@param line string
+---@param result SanitizerResult
+M.extract_error_info = function(line, result)
+	local sanitizer, error_type = line:match(PATTERNS.error_info)
+	result.sanitizer = sanitizer
+	result.error_type = error_type
 end
 
 ---@param line string
