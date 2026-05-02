@@ -1,6 +1,6 @@
 {
   "runtime.version": "LuaJIT",
-  "diagnostics.globals": ["vim"],
-  "workspace.library": ["${3rd}/luv/library"],
+  "diagnostics.globals": ["vim", "MiniTest"],
+  "workspace.library": ["${3rd}/luv/library", "deps/mini.nvim/lua"],
   "workspace.checkThirdParty": false
 }

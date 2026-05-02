@@ -51,8 +51,7 @@ M.extract_stack_frame = function(line, result)
 		if func then
 			table.insert(result.frames, { func = func, file = file, line = tonumber(line_num), binary = binary })
 		else
-			-- when file is <null>
-			-- TODO: should I keep them?
+			-- TODO: should I keep <null> files?
 			table.insert(result.frames, { func = before, file = nil, line = nil, binary = binary })
 		end
 	end
