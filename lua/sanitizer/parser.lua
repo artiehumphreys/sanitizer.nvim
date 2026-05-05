@@ -4,7 +4,7 @@ local M = {}
 ---@field func string
 ---@field file string?
 ---@field line number?
----@field binary string
+---@field binary string?
 
 ---@class SanitizerResult
 ---@field frames SanitizerFrame[]
@@ -14,13 +14,15 @@ local M = {}
 
 ---@type table<string, string>
 local PATTERNS = {
-	frame = "^%s+#%d+%s+(.+)%s+%((.-)%)$",
-	file_line = "(.+)%s+(.+):(%d+)$",
+	frame_with_binary = "^%s+#%d+%s+(.+)%s+%((.-)%)$",
+	frame_no_binary = "^%s+#%d+%s+(.+)$",
+	addr_prefix = "^0x%x+%s+in%s+",
+	file_line = "(.+)%s+([^:]+):(%d+)",
 	summary = "^SUMMARY:%s+(.+)$",
-	error_info = "^%w+:%s+(%w+):%s+(.+)$",
+	error_info = "(%w+Sanitizer):%s+(.+)$",
 	is_frame = "^%s+#%d+",
 	is_summary = "^SUMMARY:",
-	is_error = "^%w+:%s+%w+Sanitizer:",
+	is_error = "%w+Sanitizer:",
 }
 
 ---@param output string
@@ -59,15 +61,18 @@ end
 ---@param line string
 ---@param result SanitizerResult
 M.extract_stack_frame = function(line, result)
-	local before, binary = line:match(PATTERNS.frame)
-	if before ~= nil then
-		local func, file, line_num = before:match(PATTERNS.file_line)
-		if func then
-			table.insert(result.frames, { func = func, file = file, line = tonumber(line_num), binary = binary })
-		else
-			-- TODO: should I keep <null> files?
-			table.insert(result.frames, { func = before, file = nil, line = nil, binary = binary })
-		end
+	local frame_info, binary = line:match(PATTERNS.frame_with_binary)
+	if not frame_info then
+		-- frames from user code may omit binary info
+		frame_info = vim.trim(line:match(PATTERNS.frame_no_binary))
+	end
+	frame_info = frame_info:gsub(PATTERNS.addr_prefix, "")
+	local func, file, line_num = frame_info:match(PATTERNS.file_line)
+	if func then
+		table.insert(result.frames, { func = func, file = file, line = tonumber(line_num), binary = binary })
+	else
+		-- <null> function
+		table.insert(result.frames, { func = frame_info, file = nil, line = nil, binary = binary })
 	end
 end
 
