@@ -73,7 +73,7 @@ end
 
 ---@param frames SanitizerFrame[]
 ---@param project_root string
----@return string[]
+---@return SanitizerFrame[]
 M.filter_user_frames = function(frames, project_root)
 	local user_frames = {}
 	local project = require("sanitizer.project")
@@ -81,7 +81,7 @@ M.filter_user_frames = function(frames, project_root)
 
 	for _, frame in ipairs(frames) do
 		if frame.file and files[frame.file] then
-			table.insert(user_frames, files[frame.file])
+			table.insert(user_frames, frame)
 		end
 	end
 
