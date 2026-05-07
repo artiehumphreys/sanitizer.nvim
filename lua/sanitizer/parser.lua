@@ -23,6 +23,7 @@ local PATTERNS = {
 	is_frame = "^%s+#%d+",
 	is_summary = "^SUMMARY:",
 	is_error = "%w+Sanitizer:",
+	ubsan_error = "(.+):(%d+):%d+:%s+runtime error:%s+(.+)$",
 }
 
 ---@param output string
@@ -39,6 +40,10 @@ M.parse = function(output)
 		elseif line:match(PATTERNS.is_frame) then
 			M.extract_stack_frame(line, result)
 		end
+	end
+
+	if #result.frames == 0 then
+		M.try_ubsan_format(lines, result)
 	end
 
 	return result
@@ -73,6 +78,26 @@ M.extract_stack_frame = function(line, result)
 	else
 		-- <null> function
 		table.insert(result.frames, { func = frame_info, file = nil, line = nil, binary = binary })
+	end
+end
+
+---@param lines string[]
+---@param result SanitizerResult
+M.try_ubsan_format = function(lines, result)
+	for _, line in ipairs(lines) do
+		local file, line_num, desc = line:match(PATTERNS.ubsan_error)
+		if file then
+			table.insert(result.frames, { func = desc, file = vim.fn.fnamemodify(file, ":t"), line = tonumber(line_num), binary = nil })
+			result.error_type = desc
+			break
+		end
+	end
+
+	if not result.sanitizer and result.summary then
+		local sanitizer = result.summary:match(PATTERNS.error_info)
+		if sanitizer then
+			result.sanitizer = sanitizer
+		end
 	end
 end
 
