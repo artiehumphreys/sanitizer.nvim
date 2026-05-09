@@ -1,3 +1,9 @@
+# mini.nvim dependency
+deps/
+
+# CMake artifacts
+tests/fixtures/projects/*/build/
+
 # Compiled Lua sources
 luac.out
 

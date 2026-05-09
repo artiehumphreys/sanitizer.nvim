@@ -25,18 +25,18 @@ Additional config considerations:
 
 For projects that have a `CMakeLists.txt` in the root directory, CTest will be used, and g++/gcc otherwise. The idea is that either way, the output will be nicely formatted.
 
-CMake support will be prioritized.
+CMake support will be prioritized. Also, g++ support will be secondary; clang++ diagnostics will provide a heightened user experience.
 
 ## Commands
-- :SanBuild <address, thread, leak, undefined, memory>
+- :San build <address, thread, leak, undefined, memory>
     - Compiles current file in case of single-file case, or runs CTest if configured with the given sanitizer.
-- :SanResults
+- :San results
     - Reopen the results window from the last run.
-- :SanClear
+- :San clear
     - Clear all sanitizer diagnostics from the current buffer.
-- :SanStop
+- :San stop
     - Kill a running sanitizer build.
-- :SanHookInstall / :SanHookRemove
+- :San hook <install, remove>
     - Install or remove a git pre-commit hook that runs the sanitizer check. See more on this feature below.
 
 ## Non-Goals
