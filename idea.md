@@ -28,10 +28,10 @@ For projects that have a `CMakeLists.txt` in the root directory, CTest will be u
 CMake support will be prioritized. Also, g++ support will be secondary; clang++ diagnostics will provide a heightened user experience.
 
 ## Commands
-- :San build <address, thread, leak, undefined, memory>
-    - Compiles current file in case of single-file case, or configures CMake with the given sanitizer.
-- :San run
-    - Runs CTest or the compiled binary. Parses sanitizer output on completion.
+- :San build <sanitizer> [target]
+    - Compiles current file in case of single-file case, or configures CMake with the given sanitizer. Optional target builds only that CMake target; omit to build all.
+- :San run [target]
+    - Runs CTest or the compiled binary. Parses sanitizer output on completion. Optional target runs only that CTest target; omit to run all.
 - :San results
     - Reopen the results window from the last run.
 - :San clear
