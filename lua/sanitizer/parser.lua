@@ -59,8 +59,8 @@ end
 ---@param result SanitizerResult
 M.extract_error_info = function(line, result)
 	local sanitizer, error_type = line:match(PATTERNS.error_info)
-	result.sanitizer = sanitizer
-	result.error_type = error_type
+	result.sanitizer = result.sanitizer or sanitizer
+	result.error_type = result.error_type or error_type
 end
 
 ---@param line string
