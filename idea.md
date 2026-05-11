@@ -29,7 +29,9 @@ CMake support will be prioritized. Also, g++ support will be secondary; clang++ 
 
 ## Commands
 - :San build <address, thread, leak, undefined, memory>
-    - Compiles current file in case of single-file case, or runs CTest if configured with the given sanitizer.
+    - Compiles current file in case of single-file case, or configures CMake with the given sanitizer.
+- :San run
+    - Runs CTest or the compiled binary. Parses sanitizer output on completion.
 - :San results
     - Reopen the results window from the last run.
 - :San clear
