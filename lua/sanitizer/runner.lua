@@ -5,7 +5,11 @@ local sanitizer_flags = {
   address = "-fsanitize=address",
   thread = "-fsanitize=thread",
   undefined = "-fsanitize=undefined",
+  memory = "-fsanitize=memory -fsanitize-memory-track-origins",
+  leak = "-fsanitize=leak",
 }
+
+local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 
 ---@class RunnerError
 ---@field type "configure"|"build"|"run"|"validation"
@@ -20,7 +24,7 @@ M.build = function(sanitizer, project_root, target, on_complete)
   if not sanitizer_flags[sanitizer:lower()] then
     on_complete(false, {
       type = "validation",
-      message = "Invalid sanitizer. Choose from: address, thread, undefined",
+      message = "Invalid sanitizer. Choose from: address, thread, undefined, memory, leak",
     })
     return
   end
@@ -36,8 +40,9 @@ M.build = function(sanitizer, project_root, target, on_complete)
     project_root,
     "-B",
     build_path,
-    "-DCMAKE_C_FLAGS=" .. flag,
-    "-DCMAKE_CXX_FLAGS=" .. flag,
+    "-DCMAKE_C_FLAGS=" .. flag .. " " .. COMMON_FLAGS,
+    "-DCMAKE_CXX_FLAGS=" .. flag .. " " .. COMMON_FLAGS,
+    "-DCMAKE_EXE_LINKER_FLAGS=" .. flag,
   }
 
   local build_cmd = { "cmake", "--build", build_path }
