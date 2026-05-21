@@ -2,7 +2,7 @@ local M = {}
 
 local source_extensions = { c = true, cpp = true, h = true, hpp = true, cc = true, hh = true }
 
-local excluded_dirs = { "build", "node_modules" }
+local excluded_dirs = { "build", "node_modules", ".git" }
 
 ---@param dir_path string
 ---@return boolean

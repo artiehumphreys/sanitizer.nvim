@@ -21,6 +21,7 @@ local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 ---@param target string?
 ---@param on_complete fun(ok: boolean, err: RunnerError?)
 M.build = function(sanitizer, project_root, target, on_complete)
+  -- TODO: handle no cmake config case
   if not sanitizer_flags[sanitizer:lower()] then
     on_complete(false, {
       type = "validation",

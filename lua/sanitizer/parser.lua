@@ -42,6 +42,7 @@ M.parse = function(output)
     end
   end
 
+  -- likely runtime error -> try ubsan format
   if #result.frames == 0 then
     M.try_ubsan_format(lines, result)
   end
@@ -90,15 +91,12 @@ M.try_ubsan_format = function(lines, result)
   for _, line in ipairs(lines) do
     local file, line_num, desc = line:match(PATTERNS.ubsan_error)
     if file then
-      table.insert(
-        result.frames,
-        {
-          func = desc,
-          file = vim.fn.fnamemodify(file, ":t"),
-          line = tonumber(line_num),
-          binary = nil,
-        }
-      )
+      table.insert(result.frames, {
+        func = desc,
+        file = vim.fn.fnamemodify(file, ":t"),
+        line = tonumber(line_num),
+        binary = nil,
+      })
       result.error_type = desc
       break
     end
