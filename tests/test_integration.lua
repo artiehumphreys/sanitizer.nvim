@@ -10,7 +10,7 @@ end
 local runner = require("sanitizer.runner")
 local parser = require("sanitizer.parser")
 
-local project_dir = "tests/projects/fixtures"
+local project_base = "tests/projects/fixtures"
 
 local timeout = 25000
 
@@ -28,7 +28,7 @@ local expected = {
 ---@return string
 ---@return SanitizerResult?
 local function build_and_parse(sanitizer, project)
-  local project_root = project_dir .. "/" .. project
+  local project_root = project_base .. "/" .. project
   local target = project .. "-test"
 
   local build_done = false
@@ -70,7 +70,37 @@ end
 
 for _, case in ipairs(expected) do
   T[case.sanitizer] = new_set()
-  -- TODO: assert output
+
+  T[case.sanitizer]["is output parseable"] = function()
+    local ok, output, result = build_and_parse(case.sanitizer, case.project)
+    assert(ok, output)
+    assert(result, "parser result is nil for " .. case.sanitizer)
+    assert(result.error_type, "parser returned nil error_type for " .. case.sanitizer)
+    assert(
+      result.error_type:lower():match(case.error_pattern),
+      "error type does not match the case pattern "
+        .. case.error_pattern
+        .. "for "
+        .. case.sanitizer
+    )
+  end
+
+  T[case.sanitizer]["has frames"] = function()
+    local ok, output, result = build_and_parse(case.sanitizer, case.project)
+    assert(ok, output)
+    assert(result, "parser result is nil for " .. case.sanitizer)
+    assert(#result.frames > 0, "no frames parsed for " .. case.sanitizer)
+  end
+
+  T[case.sanitizer]["has user frames"] = function()
+    local ok, output, result = build_and_parse(case.sanitizer, case.project)
+    assert(ok, output)
+    assert(result, "parser result is nil for " .. case.sanitizer)
+
+    local project_root = project_base .. "/" .. case.project
+    local user_frames = parser.filter_user_frames(result.frames, project_root)
+    assert(#user_frames > 0, "no user frames for " .. case.sanitizer)
+  end
 end
 
 return T
