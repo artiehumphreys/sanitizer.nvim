@@ -1,0 +1,43 @@
+name: Sanitizer Integration Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, undefined, thread, memory, leak]
+        compiler: [gcc, clang]
+        neovim: [stable, nightly]
+        exclude:
+          - sanitizer: memory
+            compiler: gcc
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+
+    name: ${{ matrix.sanitizer }} / ${{ matrix.compiler }} / ${{ matrix.neovim }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Install dependencies
+        run: make deps/mini.nvim
+
+      - name: Run integration test
+        env:
+          CI: "true"
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+          SANITIZER: ${{ matrix.sanitizer }}
+        run: nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run_file('tests/test_integration.lua')"

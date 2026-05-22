@@ -1,4 +1,3 @@
-local eq = MiniTest.expect.equality
 local new_set = MiniTest.new_set
 
 local T = new_set()
@@ -10,17 +9,25 @@ end
 local runner = require("sanitizer.runner")
 local parser = require("sanitizer.parser")
 
-local project_base = "tests/projects/fixtures"
+local project_base = "tests/fixtures/projects"
 
 local timeout = 25000
 
-local expected = {
+local all_cases = {
   { sanitizer = "address", project = "uaf", error_pattern = "use%-after%-free" },
   { sanitizer = "undefined", project = "ub", error_pattern = "runtime error" },
   { sanitizer = "thread", project = "race", error_pattern = "data race" },
   { sanitizer = "memory", project = "mem", error_pattern = "use%-of%-uninitialized%-value" },
   { sanitizer = "leak", project = "uaf", error_pattern = "leak" },
 }
+
+local sanitizer_filter = os.getenv("SANITIZER")
+local expected = {}
+for _, case in ipairs(all_cases) do
+  if not sanitizer_filter or case.sanitizer == sanitizer_filter then
+    table.insert(expected, case)
+  end
+end
 
 ---@param sanitizer string
 ---@param project string
