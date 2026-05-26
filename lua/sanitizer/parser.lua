@@ -119,8 +119,11 @@ M.filter_user_frames = function(frames, project_root)
   local files = project.get_project_files(project_root)
 
   for _, frame in ipairs(frames) do
-    if frame.file and files[frame.file] then
-      table.insert(user_frames, frame)
+    if frame.file then
+      local basename = vim.fn.fnamemodify(frame.file, ":t")
+      if basename and files[basename] then
+        table.insert(user_frames, frame)
+      end
     end
   end
 
