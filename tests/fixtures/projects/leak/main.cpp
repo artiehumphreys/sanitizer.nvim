@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
 int main() {
-  void *ptr = malloc(64);
-  (void)ptr;
+  char *volatile buf = (char *)malloc(64);
+  (void)buf;
   return 0;
 }
