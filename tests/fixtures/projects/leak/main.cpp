@@ -1,7 +1,7 @@
-#include <iostream>
+#include <stdlib.h>
 
 int main() {
-  int *ptr = new int(10);
-  std::cout << *ptr << '\n';
+  void *ptr = malloc(64);
+  (void)ptr;
   return 0;
 }
