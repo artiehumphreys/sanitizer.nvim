@@ -15,10 +15,10 @@ local timeout = 25000
 
 local all_cases = {
   { sanitizer = "address", project = "uaf", error_pattern = "use%-after%-free" },
-  { sanitizer = "undefined", project = "ub", error_pattern = "runtime error" },
+  { sanitizer = "undefined", project = "ub", error_pattern = "overflow" },
   { sanitizer = "thread", project = "race", error_pattern = "data race" },
   { sanitizer = "memory", project = "mem", error_pattern = "use%-of%-uninitialized%-value" },
-  { sanitizer = "leak", project = "uaf", error_pattern = "leak" },
+  { sanitizer = "leak", project = "leak", error_pattern = "leak" },
 }
 
 local sanitizer_filter = os.getenv("SANITIZER")
@@ -87,8 +87,12 @@ for _, case in ipairs(expected) do
       result.error_type:lower():match(case.error_pattern),
       "error type does not match the case pattern "
         .. case.error_pattern
-        .. "for "
+        .. " != "
+        .. result.error_type
+        .. " for "
         .. case.sanitizer
+        .. ". The output is here\n"
+        .. output
     )
   end
 
