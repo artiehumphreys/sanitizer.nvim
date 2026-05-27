@@ -1,9 +1,28 @@
 local M = {}
 
-local source_extensions = { c = true, cpp = true, h = true, hpp = true, cc = true, hh = true }
+local source_extensions =
+  { c = true, cpp = true, h = true, hpp = true, cc = true, hh = true, cxx = true }
 
-local excluded_dirs = { "build", "node_modules", ".git" }
+local excluded_dirs = { "build", "node_modules", ".git", ".vscode", ".idea", ".cache" }
 
+local BUILD_DIR_PREFIX = "san_build"
+
+---@param project_root string
+---@param sanitizer string
+---@return string
+function M.get_build_path(project_root, sanitizer)
+  return vim.fs.joinpath(project_root, BUILD_DIR_PREFIX .. "_" .. sanitizer)
+end
+
+---@param project_root string
+---@param sanitizer string
+---@param target string
+---@return string
+function M.get_executable_path(project_root, sanitizer, target)
+  return vim.fs.joinpath(M.get_build_path(project_root, sanitizer), target)
+end
+
+--FIX: is this needed?
 ---@param dir_path string
 ---@return boolean
 local function is_excluded_dir(dir_path)
@@ -16,40 +35,9 @@ local function is_excluded_dir(dir_path)
 end
 
 ---@param project_root string
----@return table<string, string>
-M.get_project_files = function(project_root)
-  local project_files = {}
-  local files = vim.fs.find(function(name, path)
-    if is_excluded_dir(path) then
-      return false
-    end
-    local ext = name:match("%.([^%.]+)$")
-    return ext and source_extensions[ext] or false
-  end, {
-    path = project_root,
-    limit = math.huge,
-    type = "file",
-  })
-
-  for _, file in ipairs(files) do
-    local filename = vim.fn.fnamemodify(file, ":t")
-    project_files[filename] = vim.fn.fnamemodify(file, ":p")
-  end
-
-  return project_files
-end
-
----@param project_root string
 ---@return boolean
 M.has_cmake_config = function(project_root)
-  local found = vim.fs.find(function(name)
-    return name:lower() == "cmakelists.txt"
-  end, {
-    path = project_root,
-    limit = 1,
-  })
-
-  return #found > 0
+  return vim.uv.fs_stat(vim.fs.joinpath(project_root, "CMakeLists.txt")) ~= nil
 end
 
 return M

@@ -58,7 +58,7 @@ local function build_and_parse(sanitizer, project)
   local run_done = false
   local run_output
 
-  runner.run(project_root, target, function(_, output)
+  runner.run(sanitizer, project_root, target, function(_, output)
     run_output = output
     run_done = true
   end)
