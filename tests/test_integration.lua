@@ -114,4 +114,41 @@ for _, case in ipairs(expected) do
   end
 end
 
+---@param handle RunnerHandle
+---@param err RunnerError?
+---@param done boolean
+local function assert_cancelled(handle, err, done)
+  assert(done, "callback never fired")
+  assert(err and err.type == "cancelled", "expected cancelled got " .. vim.inspect(err))
+  assert(handle:stage() == "done")
+  assert(not handle:is_running())
+end
+
+---@param project_base string
+local function cancel_configure(project_base)
+  local sanitizer = "thread"
+  local project_root = project_base .. "/hang"
+
+  local done = false
+  local err_out = nil
+
+  vim.env.SLOW_CONFIGURE = "1"
+  local handle = runner.build(sanitizer, project_root, nil, function(_, err)
+    done = true
+    err_out = err
+  end)
+
+  -- let cmake spawn
+  vim.wait(200)
+  assert(handle:stage() == "configure")
+
+  handle:cancel()
+  vim.wait(3000, function()
+    return done
+  end)
+  vim.env.SLOW_CONFIGURE = nil
+
+  assert_cancelled(handle, err_out, done)
+end
+
 return T
