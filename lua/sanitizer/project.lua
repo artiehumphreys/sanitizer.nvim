@@ -63,4 +63,10 @@ M.has_cmake_config = function(project_root)
   return vim.uv.fs_stat(vim.fs.joinpath(project_root, "CMakeLists.txt")) ~= nil
 end
 
+---@param name string
+---@return string
+M.normalize_sanitizer = function(name)
+  return name and name:lower() or nil
+end
+
 return M

@@ -17,25 +17,23 @@ local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 ---@field message string
 ---@field code integer?
 
--- handle object for managing runner state
 ---@class RunnerHandle
 ---@field _handle vim.SystemObj?
----@field _stage "configure"|"build"|"run"|"done"
+---@field _stage "idle"|"configure"|"build"|"run"|"done"
 ---@field _cancelled boolean
-
-local Job = {}
-Job.__index = Job
+local RunnerHandle = {}
+RunnerHandle.__index = RunnerHandle
 
 ---@return RunnerHandle
-function Job.new()
+function RunnerHandle.new()
   return setmetatable({
     _handle = nil,
     _stage = "idle",
     _cancelled = false,
-  }, Job)
+  }, RunnerHandle)
 end
 
-function Job:cancel()
+function RunnerHandle:cancel()
   if self._handle and not self._handle:is_closing() then
     self._cancelled = true
     self._handle:kill("sigterm")
@@ -43,24 +41,24 @@ function Job:cancel()
 end
 
 ---@return boolean
-function Job:is_running()
+function RunnerHandle:is_running()
   return self._stage ~= "idle" and self._stage ~= "done"
 end
 
 ---@return string
-function Job:stage()
+function RunnerHandle:stage()
   return self._stage
 end
 
----@param job RunnerHandle
+---@param handle RunnerHandle
 ---@param build_cmd string[]
 ---@param on_complete fun(ok: boolean, err: RunnerError?)
-local function run_cmake_build(job, build_cmd, on_complete)
-  job._stage = "build"
-  job._handle = vim.system(build_cmd, {}, function(build_result)
-    job._stage = "done"
+local function run_cmake_build(handle, build_cmd, on_complete)
+  handle._stage = "build"
+  handle._handle = vim.system(build_cmd, {}, function(build_result)
+    handle._stage = "done"
     vim.schedule(function()
-      if job._cancelled then
+      if handle._cancelled then
         on_complete(false, { type = "cancelled", message = "build cancelled" })
       elseif build_result.code ~= 0 then
         on_complete(false, {
@@ -82,15 +80,15 @@ end
 ---@return RunnerHandle
 M.build = function(sanitizer, project_root, target, on_complete)
   -- TODO: handle no cmake config cases
-  local job = Job.new()
-  sanitizer = sanitizer:lower()
+  local handle = RunnerHandle.new()
+  sanitizer = project.normalize_sanitizer(sanitizer)
 
   local function fail(msg)
-    job._stage = "done"
+    handle._stage = "done"
     vim.schedule(function()
       on_complete(false, { type = "validation", message = msg })
     end)
-    return job
+    return handle
   end
 
   if not sanitizer_flags[sanitizer] then
@@ -123,18 +121,18 @@ M.build = function(sanitizer, project_root, target, on_complete)
     vim.list_extend(build_cmd, { "--target", target })
   end
 
-  job._stage = "configure"
+  handle._stage = "configure"
   -- NOTE: vim.system returns a SystemObj handle when the command runs asynchronously
-  job._handle = vim.system(configure_cmd, {}, function(configure_result)
-    if job._cancelled then
-      job._stage = "done"
+  handle._handle = vim.system(configure_cmd, {}, function(configure_result)
+    if handle._cancelled then
+      handle._stage = "done"
       vim.schedule(function()
         on_complete(false, { type = "cancelled", message = "build cancelled" })
       end)
       return
     end
     if configure_result.code ~= 0 then
-      job._stage = "done"
+      handle._stage = "done"
       vim.schedule(function()
         on_complete(false, {
           type = "configure",
@@ -145,10 +143,10 @@ M.build = function(sanitizer, project_root, target, on_complete)
       return
     end
 
-    run_cmake_build(job, build_cmd, on_complete)
+    run_cmake_build(handle, build_cmd, on_complete)
   end)
 
-  return job
+  return handle
 end
 
 ---@param sanitizer string
@@ -157,27 +155,27 @@ end
 ---@param on_complete fun(ok: boolean, output: string, err: RunnerError?)
 ---@return RunnerHandle
 M.run = function(sanitizer, project_root, target, on_complete)
-  local job = Job.new()
-  sanitizer = sanitizer:lower()
+  local handle = RunnerHandle.new()
+  sanitizer = project.normalize_sanitizer(sanitizer)
 
   if not sanitizer_flags[sanitizer] then
-    job._stage = "done"
+    handle._stage = "done"
     vim.schedule(function()
       on_complete(false, "", {
         type = "validation",
         message = "Invalid sanitizer. Choose from: address, thread, undefined, memory, leak",
       })
     end)
-    return job
+    return handle
   end
 
   local run_cmd = { project.get_executable_path(project_root, sanitizer, target) }
-  job._stage = "run"
-  job._handle = vim.system(run_cmd, {}, function(run_result)
+  handle._stage = "run"
+  handle._handle = vim.system(run_cmd, {}, function(run_result)
     local output = (run_result.stdout or "") .. (run_result.stderr or "")
-    job._stage = "done"
+    handle._stage = "done"
     vim.schedule(function()
-      if job._cancelled then
+      if handle._cancelled then
         on_complete(false, output, { type = "cancelled", message = "run cancelled" })
       elseif run_result.code ~= 0 then
         on_complete(false, output, {
@@ -191,7 +189,7 @@ M.run = function(sanitizer, project_root, target, on_complete)
     end)
   end)
 
-  return job
+  return handle
 end
 
 return M
