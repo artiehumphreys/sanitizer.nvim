@@ -22,7 +22,6 @@ function M.get_executable_path(project_root, sanitizer, target)
   return vim.fs.joinpath(M.get_build_path(project_root, sanitizer), target)
 end
 
---FIX: is this needed?
 ---@param dir_path string
 ---@return boolean
 local function is_excluded_dir(dir_path)
@@ -32,6 +31,30 @@ local function is_excluded_dir(dir_path)
     end
   end
   return false
+end
+
+---@param project_root string
+---@return table<string, string>
+M.get_project_files = function(project_root)
+  local project_files = {}
+  local files = vim.fs.find(function(name, path)
+    if is_excluded_dir(path) then
+      return false
+    end
+    local ext = name:match("%.([^%.]+)$")
+    return source_extensions[ext or ""] == true
+  end, {
+    path = project_root,
+    limit = math.huge,
+    type = "file",
+  })
+
+  for _, file in ipairs(files) do
+    local filename = vim.fn.fnamemodify(file, ":t")
+    project_files[filename] = vim.fn.fnamemodify(file, ":p")
+  end
+
+  return project_files
 end
 
 ---@param project_root string
