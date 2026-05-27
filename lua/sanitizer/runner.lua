@@ -12,27 +12,57 @@ local sanitizer_flags = {
 
 local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 
--- module-level state
-M._handle = nil
-M._current = nil
-
 ---@class RunnerError
----@field type "configure"|"build"|"run"|"validation"
+---@field type "configure"|"build"|"run"|"validation"|"cancelled"
 ---@field message string
 ---@field code integer?
 
----@return boolean
-local function is_running()
-  return M._handle ~= nil and not M._handle:is_closing()
+-- handle object for managing runner state
+---@class RunnerHandle
+---@field _handle vim.SystemObj?
+---@field _stage "configure"|"build"|"run"|"done"
+---@field _cancelled boolean
+
+local Job = {}
+Job.__index = Job
+
+---@return RunnerHandle
+function Job.new()
+  return setmetatable({
+    _handle = nil,
+    _stage = "idle",
+    _cancelled = false,
+  }, Job)
 end
 
+function Job:cancel()
+  if self._handle and not self._handle:is_closing() then
+    self._cancelled = true
+    self._handle:kill("sigterm")
+  end
+end
+
+---@return boolean
+function Job:is_running()
+  return self._stage ~= "idle" and self._stage ~= "done"
+end
+
+---@return string
+function Job:stage()
+  return self._stage
+end
+
+---@param job RunnerHandle
 ---@param build_cmd string[]
 ---@param on_complete fun(ok: boolean, err: RunnerError?)
-local function run_cmake_build(build_cmd, on_complete)
-  M._current = "build"
-  M._handle = vim.system(build_cmd, {}, function(build_result)
+local function run_cmake_build(job, build_cmd, on_complete)
+  job._stage = "build"
+  job._handle = vim.system(build_cmd, {}, function(build_result)
+    job._stage = "done"
     vim.schedule(function()
-      if build_result.code ~= 0 then
+      if job._cancelled then
+        on_complete(false, { type = "cancelled", message = "build cancelled" })
+      elseif build_result.code ~= 0 then
         on_complete(false, {
           type = "build",
           message = build_result.stderr,
@@ -49,44 +79,29 @@ end
 ---@param project_root string
 ---@param target string?
 ---@param on_complete fun(ok: boolean, err: RunnerError?)
+---@return RunnerHandle
 M.build = function(sanitizer, project_root, target, on_complete)
   -- TODO: handle no cmake config cases
-  if is_running() then
-    vim.schedule(function()
-      on_complete(false, {
-        type = "validation",
-        message = "Build is already running (use :San cancel to abort)",
-      })
-    end)
-    return
-  end
-
+  local job = Job.new()
   sanitizer = sanitizer:lower()
 
-  if not sanitizer_flags[sanitizer] then
+  local function fail(msg)
+    job._stage = "done"
     vim.schedule(function()
-      on_complete(false, {
-        type = "validation",
-        message = "Invalid sanitizer. Choose from: address, thread, undefined, memory, leak",
-      })
+      on_complete(false, { type = "validation", message = msg })
     end)
-    return
+    return job
+  end
+
+  if not sanitizer_flags[sanitizer] then
+    return fail("Invalid sanitizer. Choose from: address, thread, undefined, memory, leak")
   end
 
   local build_path = project.get_build_path(project_root, sanitizer)
   local flag = sanitizer_flags[sanitizer]
 
-  local ok = vim.fn.mkdir(build_path, "p")
-  if ok == 0 then
-    vim.schedule(function()
-      on_complete(false, {
-        type = "validation",
-        message = "Unable to create directory "
-          .. build_path
-          .. " . Please check folder permissions.",
-      })
-    end)
-    return
+  if vim.fn.mkdir(build_path, "p") == 0 then
+    return fail("Unable to create directory " .. build_path .. " . Check folder permissions.")
   end
 
   local configure_cmd = {
@@ -108,11 +123,18 @@ M.build = function(sanitizer, project_root, target, on_complete)
     vim.list_extend(build_cmd, { "--target", target })
   end
 
-  M._current = "configure"
+  job._stage = "configure"
   -- NOTE: vim.system returns a SystemObj handle when the command runs asynchronously
-  M._handle = vim.system(configure_cmd, {}, function(configure_result)
+  job._handle = vim.system(configure_cmd, {}, function(configure_result)
+    if job._cancelled then
+      job._stage = "done"
+      vim.schedule(function()
+        on_complete(false, { type = "cancelled", message = "build cancelled" })
+      end)
+      return
+    end
     if configure_result.code ~= 0 then
-      M._handle, M._current = nil, nil
+      job._stage = "done"
       vim.schedule(function()
         on_complete(false, {
           type = "configure",
@@ -123,22 +145,41 @@ M.build = function(sanitizer, project_root, target, on_complete)
       return
     end
 
-    run_cmake_build(build_cmd, on_complete)
+    run_cmake_build(job, build_cmd, on_complete)
   end)
+
+  return job
 end
 
 ---@param sanitizer string
 ---@param project_root string
 ---@param target string
 ---@param on_complete fun(ok: boolean, output: string, err: RunnerError?)
+---@return RunnerHandle
 M.run = function(sanitizer, project_root, target, on_complete)
+  local job = Job.new()
   sanitizer = sanitizer:lower()
-  local run_cmd = { project.get_executable_path(project_root, sanitizer, target) }
-  M._current = "run"
-  M._handle = vim.system(run_cmd, {}, function(run_result)
-    local output = (run_result.stdout or "") .. (run_result.stderr or "")
+
+  if not sanitizer_flags[sanitizer] then
+    job._stage = "done"
     vim.schedule(function()
-      if run_result.code ~= 0 then
+      on_complete(false, "", {
+        type = "validation",
+        message = "Invalid sanitizer. Choose from: address, thread, undefined, memory, leak",
+      })
+    end)
+    return job
+  end
+
+  local run_cmd = { project.get_executable_path(project_root, sanitizer, target) }
+  job._stage = "run"
+  job._handle = vim.system(run_cmd, {}, function(run_result)
+    local output = (run_result.stdout or "") .. (run_result.stderr or "")
+    job._stage = "done"
+    vim.schedule(function()
+      if job._cancelled then
+        on_complete(false, output, { type = "cancelled", message = "run cancelled" })
+      elseif run_result.code ~= 0 then
         on_complete(false, output, {
           type = "run",
           message = run_result.stderr,
@@ -149,6 +190,8 @@ M.run = function(sanitizer, project_root, target, on_complete)
       end
     end)
   end)
+
+  return job
 end
 
 return M
