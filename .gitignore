@@ -5,7 +5,8 @@
 deps/
 
 # CMake artifacts
-tests/fixtures/projects/*/build/
+tests/fixtures/projects/**/CMakeFiles
+tests/fixtures/projects/*/build
 
 # Compiled Lua sources
 luac.out
