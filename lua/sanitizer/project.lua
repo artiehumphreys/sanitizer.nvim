@@ -69,4 +69,9 @@ M.normalize_sanitizer = function(name)
   return name and name:lower() or nil
 end
 
+---@return boolean
+M.is_windows = function()
+  return vim.uv.os_uname().sysname:find("Windows") ~= nil
+end
+
 return M

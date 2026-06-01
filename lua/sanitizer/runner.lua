@@ -18,9 +18,10 @@ local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 ---@field code integer?
 
 ---@class RunnerHandle
----@field _handle vim.SystemObj?
+---@field _handle uv.uv_process_t?
 ---@field _stage "idle"|"configure"|"build"|"run"|"done"
 ---@field _cancelled boolean
+---@field _pid integer
 local RunnerHandle = {}
 RunnerHandle.__index = RunnerHandle
 
@@ -30,13 +31,18 @@ function RunnerHandle.new()
     _handle = nil,
     _stage = "idle",
     _cancelled = false,
+    _pid = nil,
   }, RunnerHandle)
 end
 
 function RunnerHandle:cancel()
   if self._handle and not self._handle:is_closing() then
     self._cancelled = true
-    self._handle:kill("sigterm")
+    if project.is_windows() then
+      vim.system({ "taskkill", "/PID", tostring(self._pid), "/T", "/F" })
+    else
+      vim.uv.kill(-self._pid, "sigterm")
+    end
   end
 end
 
@@ -51,26 +57,89 @@ function RunnerHandle:stage()
 end
 
 ---@param handle RunnerHandle
----@param build_cmd string[]
----@param on_complete fun(ok: boolean, err: RunnerError?)
-local function run_cmake_build(handle, build_cmd, on_complete)
-  handle._stage = "build"
-  handle._handle = vim.system(build_cmd, {}, function(build_result)
-    handle._stage = "done"
+---@param cmd string
+---@param args string[]
+---@param on_exit fun(code: integer?, output: string)
+local function execute_command(handle, cmd, args, on_exit)
+  local stdout = vim.uv.new_pipe(false)
+  local stderr = vim.uv.new_pipe(false)
+
+  -- fds exhausted
+  if not stdout or not stderr then
+    if stdout then
+      stdout:close()
+    end
+    if stderr then
+      stderr:close()
+    end
     vim.schedule(function()
-      if handle._cancelled then
-        on_complete(false, { type = "cancelled", message = "build cancelled" })
-      elseif build_result.code ~= 0 then
-        on_complete(false, {
-          type = "build",
-          message = build_result.stderr,
-          code = build_result.code,
-        })
-      else
-        on_complete(true, nil)
-      end
+      on_exit(nil, "failed to create pipe")
+    end)
+    return
+  end
+
+  local chunks = {}
+
+  local function on_read(_err, data)
+    if data then
+      table.insert(chunks, data)
+    end
+  end
+
+  local function close_fds()
+    if not stdout:is_closing() then
+      stdout:close()
+    end
+    if not stderr:is_closing() then
+      stderr:close()
+    end
+  end
+
+  local proc, pid = vim.uv.spawn(cmd, {
+    args = args,
+    stdio = { nil, stdout, stderr },
+    detached = true,
+  }, function(code)
+    stdout:read_stop()
+    stderr:read_stop()
+    close_fds()
+    if handle._handle and not handle._handle:is_closing() then
+      handle._handle:close()
+    end
+    handle._handle = nil
+    vim.schedule(function()
+      on_exit(code, table.concat(chunks))
     end)
   end)
+
+  -- spawn failed synchronously: proc is nil, pid holds the errno string, and the
+  -- exit callback above never fires. Report it ourselves.
+  if not proc then
+    close_fds()
+    vim.schedule(function()
+      on_exit(nil, pid --[[@as string]])
+    end)
+    return
+  end
+
+  handle._handle, handle._pid = proc, pid --[[@as integer]]
+  stdout:read_start(on_read)
+  stderr:read_start(on_read)
+end
+
+---@param stage "configure"|"build"|"run"
+---@param cancelled boolean
+---@param code integer?
+---@param output string
+---@return RunnerError?
+local function classify(stage, cancelled, code, output)
+  if cancelled then
+    return { type = "cancelled", message = stage .. " cancelled" }
+  elseif code == nil then
+    return { type = stage, message = "failed to spawn: " .. output }
+  elseif code ~= 0 then
+    return { type = stage, message = output, code = code }
+  end
 end
 
 ---@param sanitizer string
@@ -102,8 +171,9 @@ M.build = function(sanitizer, project_root, target, on_complete)
     return fail("Unable to create directory " .. build_path .. " . Check folder permissions.")
   end
 
-  local configure_cmd = {
-    "cmake",
+  local cmd = "cmake"
+
+  local configure_args = {
     "-S",
     project_root,
     "-B",
@@ -115,35 +185,27 @@ M.build = function(sanitizer, project_root, target, on_complete)
     "-DCMAKE_MODULE_LINKER_FLAGS=" .. flag,
   }
 
-  local build_cmd = { "cmake", "--build", build_path }
+  local build_args = { "--build", build_path }
 
   if target then
-    vim.list_extend(build_cmd, { "--target", target })
+    vim.list_extend(build_args, { "--target", target })
   end
 
   handle._stage = "configure"
-  -- NOTE: vim.system returns a SystemObj handle when the command runs asynchronously
-  handle._handle = vim.system(configure_cmd, {}, function(configure_result)
-    if handle._cancelled then
+  execute_command(handle, cmd, configure_args, function(code, output)
+    local err = classify("configure", handle._cancelled, code, output)
+    if err then
       handle._stage = "done"
-      vim.schedule(function()
-        on_complete(false, { type = "cancelled", message = "build cancelled" })
-      end)
-      return
-    end
-    if configure_result.code ~= 0 then
-      handle._stage = "done"
-      vim.schedule(function()
-        on_complete(false, {
-          type = "configure",
-          message = configure_result.stderr,
-          code = configure_result.code,
-        })
-      end)
+      on_complete(false, err)
       return
     end
 
-    run_cmake_build(handle, build_cmd, on_complete)
+    handle._stage = "build"
+    execute_command(handle, cmd, build_args, function(build_code, build_output)
+      handle._stage = "done"
+      local build_err = classify("build", handle._cancelled, build_code, build_output)
+      on_complete(build_err == nil, build_err)
+    end)
   end)
 
   return handle
@@ -169,24 +231,12 @@ M.run = function(sanitizer, project_root, target, on_complete)
     return handle
   end
 
-  local run_cmd = { project.get_executable_path(project_root, sanitizer, target) }
+  local executable = project.get_executable_path(project_root, sanitizer, target)
   handle._stage = "run"
-  handle._handle = vim.system(run_cmd, {}, function(run_result)
-    local output = (run_result.stdout or "") .. (run_result.stderr or "")
+  execute_command(handle, executable, {}, function(code, output)
     handle._stage = "done"
-    vim.schedule(function()
-      if handle._cancelled then
-        on_complete(false, output, { type = "cancelled", message = "run cancelled" })
-      elseif run_result.code ~= 0 then
-        on_complete(false, output, {
-          type = "run",
-          message = run_result.stderr,
-          code = run_result.code,
-        })
-      else
-        on_complete(true, output, nil)
-      end
-    end)
+    local err = classify("run", handle._cancelled, code, output)
+    on_complete(err == nil, output, err)
   end)
 
   return handle
