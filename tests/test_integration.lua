@@ -47,12 +47,15 @@ local function build_and_parse(sanitizer, project)
     build_done = true
   end)
 
-  vim.wait(timeout, function()
+  local build_fired = vim.wait(timeout, function()
     return build_done
   end)
 
+  if not build_fired then
+    return false, "build callback never fired within " .. timeout .. "ms", nil
+  end
   if not build_ok then
-    return false, "build failed: " .. (build_err and build_err.message or "unknown"), nil
+    return false, "build failed: " .. (build_err and build_err.message or "(no error message)"), nil
   end
 
   local run_done = false
@@ -63,10 +66,13 @@ local function build_and_parse(sanitizer, project)
     run_done = true
   end)
 
-  vim.wait(timeout, function()
+  local run_fired = vim.wait(timeout, function()
     return run_done
   end)
 
+  if not run_fired then
+    return false, "run callback never fired within " .. timeout .. "ms", nil
+  end
   if not run_output or run_output == "" then
     return false, "no sanitizer output captured", nil
   end
