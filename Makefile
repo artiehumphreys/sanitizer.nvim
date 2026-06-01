@@ -1,4 +1,8 @@
-.PHONY: tests test_file run
+.PHONY: tests test_file run lint
+
+lint:
+	stylua --check lua/ tests/ scripts/
+	luacheck lua/ tests/ scripts/
 
 tests: deps/mini.nvim
 	nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
