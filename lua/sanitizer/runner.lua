@@ -100,20 +100,24 @@ local function execute_command(handle, cmd, args, on_exit)
     stdio = { nil, stdout, stderr },
     detached = true,
   }, function(code)
-    stdout:read_stop()
-    stderr:read_stop()
-    close_fds()
-    if handle._handle and not handle._handle:is_closing() then
-      handle._handle:close()
-    end
+    -- NOTE: teardown is wrapped so a throwing close can never prevent on_exit from
+    -- firing; losing the result silently is the worse failure
+    pcall(function()
+      stdout:read_stop()
+      stderr:read_stop()
+      close_fds()
+      if handle._handle and not handle._handle:is_closing() then
+        handle._handle:close()
+      end
+    end)
     handle._handle = nil
     vim.schedule(function()
       on_exit(code, table.concat(chunks))
     end)
   end)
 
-  -- spawn failed synchronously: proc is nil, pid holds the errno string, and the
-  -- exit callback above never fires. Report it ourselves.
+  -- NOTE: spawn fails synchronously: proc is nil, pid holds the errno string, and
+  -- the exit callback above never fires
   if not proc then
     close_fds()
     vim.schedule(function()
