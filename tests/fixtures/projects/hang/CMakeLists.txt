@@ -21,12 +21,13 @@ endif()
 add_executable(hang-test main.cpp)
 
 if(DEFINED ENV{SLOW_BUILD})
-    add_custom_command(
-        TARGET hang-test
-        PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E sleep 5
+    add_custom_target(
+        slow
+        COMMAND ${CMAKE_COMMAND} -E sleep 30
         COMMENT "executing slow build"
+        VERBATIM
     )
+    add_dependencies(hang-test slow)
 endif()
 
 include(CTest)

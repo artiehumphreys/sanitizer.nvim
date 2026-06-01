@@ -124,8 +124,7 @@ local function assert_cancelled(handle, err, done)
   assert(not handle:is_running())
 end
 
----@param project_base string
-local function cancel_configure(project_base)
+local function cancel_configure()
   local sanitizer = "thread"
   local project_root = project_base .. "/hang"
 
@@ -149,6 +148,42 @@ local function cancel_configure(project_base)
   vim.env.SLOW_CONFIGURE = nil
 
   assert_cancelled(handle, err_out, done)
+end
+
+local function cancel_build()
+  local sanitizer = "thread"
+  local project_root = project_base .. "/hang"
+
+  local done = false
+  local err_out = nil
+
+  -- SLOW_CONFIGURE unset so configure finishes fast
+  vim.env.SLOW_BUILD = "1"
+  local handle = runner.build(sanitizer, project_root, nil, function(_, err)
+    done = true
+    err_out = err
+  end)
+
+  vim.wait(10000, function()
+    return handle:stage() == "build"
+  end)
+  assert(handle:stage() == "build")
+
+  handle:cancel()
+  vim.wait(3000, function()
+    return done
+  end)
+  vim.env.SLOW_BUILD = nil
+
+  assert_cancelled(handle, err_out, done)
+end
+
+T["cancel"] = new_set()
+T["cancel"]["during configure"] = function()
+  cancel_configure()
+end
+T["cancel"]["during build"] = function()
+  cancel_build()
 end
 
 return T
