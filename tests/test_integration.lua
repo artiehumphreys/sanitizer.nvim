@@ -41,7 +41,7 @@ local function build_and_parse(sanitizer, project)
   local build_done = false
   local build_ok, build_err
 
-  runner.build(sanitizer, project_root, nil, function(ok, err)
+  local build_handle = runner.build(sanitizer, project_root, nil, function(ok, err)
     build_ok = ok
     build_err = err
     build_done = true
@@ -52,7 +52,12 @@ local function build_and_parse(sanitizer, project)
   end)
 
   if not build_fired then
-    return false, "build callback never fired within " .. timeout .. "ms", nil
+    return false,
+      ("build callback never fired within %dms (stuck in stage=%q)"):format(
+        timeout,
+        build_handle:stage()
+      ),
+      nil
   end
   if not build_ok then
     return false, "build failed: " .. (build_err and build_err.message or "(no error message)"), nil
@@ -61,7 +66,7 @@ local function build_and_parse(sanitizer, project)
   local run_done = false
   local run_output
 
-  runner.run(sanitizer, project_root, target, function(_, output)
+  local run_handle = runner.run(sanitizer, project_root, target, function(_, output)
     run_output = output
     run_done = true
   end)
@@ -71,7 +76,12 @@ local function build_and_parse(sanitizer, project)
   end)
 
   if not run_fired then
-    return false, "run callback never fired within " .. timeout .. "ms", nil
+    return false,
+      ("run callback never fired within %dms (stuck in stage=%q)"):format(
+        timeout,
+        run_handle:stage()
+      ),
+      nil
   end
   if not run_output or run_output == "" then
     return false, "no sanitizer output captured", nil
