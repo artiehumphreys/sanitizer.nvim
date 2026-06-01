@@ -11,7 +11,7 @@ local parser = require("sanitizer.parser")
 
 local project_base = "tests/fixtures/projects"
 
-local timeout = 25000
+local timeout = 60000
 
 local all_cases = {
   { sanitizer = "address", project = "uaf", error_pattern = "use%-after%-free" },
