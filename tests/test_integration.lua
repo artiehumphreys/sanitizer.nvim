@@ -2,7 +2,7 @@ local new_set = MiniTest.new_set
 
 local T = new_set()
 
-if not os.getenv("CI") then
+if not os.getenv("SANITIZER") then
   return T
 end
 
