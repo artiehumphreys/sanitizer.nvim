@@ -29,7 +29,7 @@ local function build_invalid_sanitizer()
 end
 
 local function run_invalid_sanitizer()
-  local done, ok, output, err = true, nil, nil, nil
+  local done, ok, output, err = false, nil, nil, nil
   local handle = runner.run(bad_sanitizer, project_root, "uaf-test", function(o, out, e)
     done, ok, output, err = true, o, out, e
   end)
@@ -50,7 +50,6 @@ local function run_invalid_sanitizer()
 end
 
 T["build"] = new_set()
-
 T["build"]["invalid sanitizer"] = function()
   build_invalid_sanitizer()
 end
