@@ -1,7 +1,26 @@
 {
-  "runtime.version": "LuaJIT",
-  "runtime.path": ["lua/?.lua", "lua/?/init.lua"],
-  "diagnostics.globals": ["vim", "MiniTest"],
-  "workspace.library": ["${3rd}/luv/library", "deps/mini.nvim/lua", "lua"],
-  "workspace.checkThirdParty": false
+  "runtime": {
+    "version": "LuaJIT",
+    "path": [
+      "lua/?.lua",
+      "lua/?/init.lua",
+      "?.lua",
+      "?/init.lua"
+    ],
+    "pathStrict": true
+  },
+  "workspace": {
+    "checkThirdParty": false,
+    "library": [
+      "lua",
+      "$VIMRUNTIME/lua",
+      "${3rd}/luv/library"
+    ]
+  },
+  "type": {
+    "checkTableShape": true
+  },
+  "completion": {
+    "callSnippet": "Replace"
+  }
 }
