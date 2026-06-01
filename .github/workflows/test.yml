@@ -2,7 +2,30 @@ name: Sanitizer Integration Tests
 on: [push, pull_request]
 
 jobs:
-  test:
+  unit-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [stable, nightly]
+
+    name: unit / ${{ matrix.neovim }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Install dependencies
+        run: make deps/mini.nvim
+
+      - name: Run unit tests
+        run: nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
+
+  integration-test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
