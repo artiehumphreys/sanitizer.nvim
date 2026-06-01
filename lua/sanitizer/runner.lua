@@ -172,7 +172,6 @@ M.build = function(sanitizer, project_root, target, on_complete)
   end
 
   local cmd = "cmake"
-
   local configure_args = {
     "-S",
     project_root,
