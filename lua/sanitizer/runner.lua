@@ -10,6 +10,7 @@ local sanitizer_flags = {
   leak = "-fsanitize=leak",
 }
 
+-- TODO: handle user-defined flags
 local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 
 ---@class RunnerError
