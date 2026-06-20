@@ -10,7 +10,7 @@ local M = {}
 local function get_project_root()
   local project_root = vim.uv.cwd()
   if not project_root then
-    notify("cannot determine project root", vim.log.levels.ERROR)
+    notify("Cannot determine project root", vim.log.levels.ERROR)
     return nil
   end
   return project_root
@@ -73,13 +73,13 @@ M.run_command = function(fargs)
   local subcommand = fargs[1]
   local handler = subcommands[subcommand]
   if not handler then
-    notify("unknown subcommand " .. tostring(subcommand), vim.log.levels.ERROR)
+    notify("Unknown subcommand " .. tostring(subcommand), vim.log.levels.ERROR)
     return
   end
 
   if #fargs < 2 then
     notify(
-      "please provide a sanitizer. Choose from address, thread, undefined, memory, leak",
+      "Please provide a sanitizer. Choose from address, thread, undefined, memory, leak",
       vim.log.levels.ERROR
     )
     return
