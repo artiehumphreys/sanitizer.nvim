@@ -158,6 +158,7 @@ M.build = function(sanitizer, project_root, target, on_complete)
   sanitizer = project.normalize_sanitizer(sanitizer)
 
   local function fail(msg)
+    -- handle synchronous pre-flight errors (bad sanitizer, failed mkdir)
     handle._stage = "done"
     vim.schedule(function()
       on_complete(false, { type = "validation", message = msg })
@@ -166,7 +167,7 @@ M.build = function(sanitizer, project_root, target, on_complete)
   end
 
   if not sanitizer_flags[sanitizer] then
-    return fail("Invalid sanitizer. Choose from: address, thread, undefined, memory, leak")
+    return fail("invalid sanitizer. Choose from: address, thread, undefined, memory, leak")
   end
 
   local build_path = project.get_build_path(project_root, sanitizer)

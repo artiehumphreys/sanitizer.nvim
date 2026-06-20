@@ -10,7 +10,7 @@ local BUILD_DIR_PREFIX = "san_build"
 ---@param project_root string
 ---@param sanitizer string
 ---@return string
-function M.get_build_path(project_root, sanitizer)
+M.get_build_path = function(project_root, sanitizer)
   return vim.fs.joinpath(project_root, BUILD_DIR_PREFIX .. "_" .. sanitizer)
 end
 
@@ -18,7 +18,7 @@ end
 ---@param sanitizer string
 ---@param target string
 ---@return string
-function M.get_executable_path(project_root, sanitizer, target)
+M.get_executable_path = function(project_root, sanitizer, target)
   return vim.fs.joinpath(M.get_build_path(project_root, sanitizer), target)
 end
 
