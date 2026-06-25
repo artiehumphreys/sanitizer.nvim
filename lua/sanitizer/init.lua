@@ -2,7 +2,8 @@ local notify = require("sanitizer.log").notify
 
 local M = {}
 
--- TODO: configure stop, results
+-- live handle of the running build/run, for `San stop`; nil when idle
+local active_handle
 
 ---@class sanitizer.Opts
 ---@field sanitizer? string
@@ -40,7 +41,15 @@ M.build = function(args)
     return
   end
 
-  require("sanitizer.runner").build(args.sanitizer, project_root, args.target, log)
+  active_handle = require("sanitizer.runner").build(
+    args.sanitizer,
+    project_root,
+    args.target,
+    function(ok, err)
+      active_handle = nil
+      log(ok, err)
+    end
+  )
 end
 
 ---@param args sanitizer.Opts
@@ -50,11 +59,12 @@ M.run = function(args)
     return
   end
 
-  require("sanitizer.runner").run(
+  active_handle = require("sanitizer.runner").run(
     args.sanitizer,
     project_root,
     args.target,
     function(ok, output, err)
+      active_handle = nil
       log(ok, err, output)
     end
   )
@@ -73,6 +83,19 @@ M.clean = function(args)
   end)
 end
 
+M.stop = function()
+  if active_handle and active_handle:is_running() then
+    active_handle:cancel()
+  else
+    notify("No running command to stop", vim.log.levels.WARN)
+  end
+end
+
+M.results = function()
+  -- TODO: render the last result in the notification window (sanitizer.notification)
+  notify("results view not implemented yet")
+end
+
 ---@type table<string, fun(args: string[])>
 local subcommands = {
   build = function(args)
@@ -83,6 +106,12 @@ local subcommands = {
   end,
   clean = function(args)
     M.clean({ sanitizer = args[1] })
+  end,
+  stop = function()
+    M.stop()
+  end,
+  results = function()
+    M.results()
   end,
 }
 
@@ -95,14 +124,6 @@ M.run_command = function(fargs)
     return
   end
 
-  if #fargs < 2 then
-    notify(
-      "Please provide a sanitizer. Choose from address, thread, undefined, memory, leak",
-      vim.log.levels.ERROR
-    )
-    return
-  end
-  -- get plugin args
   handler(vim.list_slice(fargs, 2))
 end
 

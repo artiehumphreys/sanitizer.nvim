@@ -57,6 +57,8 @@ function RunnerHandle:stage()
   return self._stage
 end
 
+-- Spawns cmd asynchronously, capturing merged stdout+stderr, and invokes on_exit
+-- (scheduled) with the exit code and collected output once the process closes.
 ---@param handle RunnerHandle
 ---@param cmd string
 ---@param args string[]
@@ -102,7 +104,7 @@ local function execute_command(handle, cmd, args, on_exit)
     detached = true,
   }, function(code)
     -- NOTE: teardown is wrapped so a throwing close can never prevent on_exit from
-    -- firing; losing the result silently is the worse failure
+    -- firing
     pcall(function()
       stdout:read_stop()
       stderr:read_stop()
