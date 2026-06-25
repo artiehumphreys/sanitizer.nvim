@@ -2,7 +2,7 @@ local notify = require("sanitizer.log").notify
 
 local M = {}
 
--- TODO: configure stop, clear, results
+-- TODO: configure stop, results
 
 ---@class sanitizer.Opts
 ---@field sanitizer? string
@@ -60,6 +60,19 @@ M.run = function(args)
   )
 end
 
+---@param args sanitizer.Opts
+M.clean = function(args)
+  local project_root = get_project_root()
+  if not project_root then
+    return
+  end
+
+  notify("Clearing build directory...")
+  require("sanitizer.runner").clean(args.sanitizer, project_root, function(ok, err)
+    log(ok, err, "Cleared build directory")
+  end)
+end
+
 ---@type table<string, fun(args: string[])>
 local subcommands = {
   build = function(args)
@@ -67,6 +80,9 @@ local subcommands = {
   end,
   run = function(args)
     M.run({ sanitizer = args[1], target = args[2] })
+  end,
+  clean = function(args)
+    M.clean({ sanitizer = args[1] })
   end,
 }
 

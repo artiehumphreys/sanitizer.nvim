@@ -252,7 +252,7 @@ end
 ---@param project_root string
 ---@param on_complete fun(ok: boolean, err: RunnerError?)
 -- TODO: use `cmake --build <dir> --target clean` for CMake 3.X+
-M.clear = function(sanitizer, project_root, on_complete)
+M.clean = function(sanitizer, project_root, on_complete)
   sanitizer = project.normalize_sanitizer(sanitizer)
   local build_folder = project.get_build_path(project_root, sanitizer)
 
@@ -263,7 +263,7 @@ M.clear = function(sanitizer, project_root, on_complete)
     if obj.code == 0 then
       on_complete(true)
     else
-      on_complete(false, { type = "validation", message = "Unable to clear " .. build_folder })
+      on_complete(false, { type = "validation", message = "Unable to clean " .. build_folder })
     end
   end)
 end
