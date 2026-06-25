@@ -10,6 +10,7 @@ local sanitizer_flags = {
   leak = "-fsanitize=leak",
 }
 
+-- TODO: handle user-defined flags
 local COMMON_FLAGS = "-fno-omit-frame-pointer -g -O1"
 
 ---@class RunnerError
@@ -56,6 +57,8 @@ function RunnerHandle:stage()
   return self._stage
 end
 
+-- Spawns cmd asynchronously, capturing merged stdout+stderr, and invokes on_exit
+-- (scheduled) with the exit code and collected output once the process closes.
 ---@param handle RunnerHandle
 ---@param cmd string
 ---@param args string[]
@@ -101,7 +104,7 @@ local function execute_command(handle, cmd, args, on_exit)
     detached = true,
   }, function(code)
     -- NOTE: teardown is wrapped so a throwing close can never prevent on_exit from
-    -- firing; losing the result silently is the worse failure
+    -- firing
     pcall(function()
       stdout:read_stop()
       stderr:read_stop()
@@ -157,7 +160,9 @@ M.build = function(sanitizer, project_root, target, on_complete)
   sanitizer = project.normalize_sanitizer(sanitizer)
 
   local function fail(msg)
+    -- handle synchronous pre-flight errors (bad sanitizer, failed mkdir)
     handle._stage = "done"
+    -- NOTE: schedule on_complete so that it doesn't fire before build returns (runs later on libuv's loop)
     vim.schedule(function()
       on_complete(false, { type = "validation", message = msg })
     end)
@@ -165,7 +170,7 @@ M.build = function(sanitizer, project_root, target, on_complete)
   end
 
   if not sanitizer_flags[sanitizer] then
-    return fail("Invalid sanitizer. Choose from: address, thread, undefined, memory, leak")
+    return fail("invalid sanitizer. Choose from: address, thread, undefined, memory, leak")
   end
 
   local build_path = project.get_build_path(project_root, sanitizer)
@@ -243,6 +248,26 @@ M.run = function(sanitizer, project_root, target, on_complete)
   end)
 
   return handle
+end
+
+---@param sanitizer string
+---@param project_root string
+---@param on_complete fun(ok: boolean, err: RunnerError?)
+-- TODO: use `cmake --build <dir> --target clean` for CMake 3.X+
+M.clean = function(sanitizer, project_root, on_complete)
+  sanitizer = project.normalize_sanitizer(sanitizer)
+  local build_folder = project.get_build_path(project_root, sanitizer)
+
+  local cmd = project.is_windows() and { "cmd", "/c", "rmdir", "/s", "/q", build_folder }
+    or { "rm", "-rf", build_folder }
+
+  vim.system(cmd, {}, function(obj)
+    if obj.code == 0 then
+      on_complete(true)
+    else
+      on_complete(false, { type = "validation", message = "Unable to clean " .. build_folder })
+    end
+  end)
 end
 
 return M
