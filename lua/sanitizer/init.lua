@@ -2,6 +2,8 @@ local notify = require("sanitizer.log").notify
 
 local M = {}
 
+-- TODO: configure stop, clear, results
+
 ---@class sanitizer.Opts
 ---@field sanitizer? string
 ---@field target? string
