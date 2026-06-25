@@ -5,6 +5,7 @@ vim.g.loaded_sanitizer = true
 
 local sanitizers = { "address", "thread", "undefined", "memory", "leak" }
 
+-- TODO: for run/clean, complete only already-built sanitizers
 local arg_completions = {
   build = { sanitizers },
   run = { sanitizers },

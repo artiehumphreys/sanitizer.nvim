@@ -2,7 +2,7 @@ local notify = require("sanitizer.log").notify
 
 local M = {}
 
--- live handle of the running build/run, for `San stop`; nil when idle
+-- live handle of the running build/run
 local active_handle
 
 ---@class sanitizer.Opts
