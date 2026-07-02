@@ -1,6 +1,14 @@
 local notify = require("sanitizer.log").notify
+local notification = require("sanitizer.notification")
 
 local M = {}
+
+local STAGE_LABEL = {
+  configure = "Configuring",
+  build = "Building",
+  run = "Running",
+  done = "Finished",
+}
 
 -- live handle of the running build/run
 local active_handle
@@ -8,6 +16,12 @@ local active_handle
 ---@class sanitizer.Opts
 ---@field sanitizer? string
 ---@field target? string
+
+---@param handle RunnerHandle
+---@return string
+local function label_for(handle)
+  return STAGE_LABEL[handle:stage()] or "Working"
+end
 
 ---@return string?
 local function get_project_root()
@@ -41,15 +55,23 @@ M.build = function(args)
     return
   end
 
-  active_handle = require("sanitizer.runner").build(
+  local handle
+  handle = require("sanitizer.runner").build(
     args.sanitizer,
     project_root,
     args.target,
     function(ok, err)
       active_handle = nil
+      notification.finish(function()
+        return label_for(handle)
+      end, ok)
       log(ok, err)
     end
   )
+  active_handle = handle
+  notification.start(function()
+    return label_for(handle)
+  end)
 end
 
 ---@param args sanitizer.Opts
@@ -59,15 +81,23 @@ M.run = function(args)
     return
   end
 
-  active_handle = require("sanitizer.runner").run(
+  local handle
+  handle = require("sanitizer.runner").run(
     args.sanitizer,
     project_root,
     args.target,
     function(ok, output, err)
       active_handle = nil
+      notification.finish(function()
+        return label_for(handle)
+      end, ok)
       log(ok, err, output)
     end
   )
+  active_handle = handle
+  notification.start(function()
+    return label_for(handle)
+  end)
 end
 
 ---@param args sanitizer.Opts
